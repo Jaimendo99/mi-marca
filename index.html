@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mi Marca">
+<meta name="theme-color" content="#09585F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="preload" href="fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+<title>Mi Marca · Sirley Zambrano</title>
+</head>
+<body>
+<header class="top">
+  <a href="#" class="back" id="back" hidden>‹ Inicio</a>
+  <img src="img/logo-white.png" alt="Sirley Zambrano Real Estate">
+</header>
+
+<main>
+  <!-- ============ INICIO ============ -->
+  <section id="home" class="screen">
+    <h1>¿Qué quieres hacer?</h1>
+    <a class="big" href="#fotos">
+      <svg class="bigico" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M3.5 17l5-4.5 3.5 3 3-2.5 5.5 4.5"/></g></svg>
+      <b>Fotos con mi logo</b>
+      <small>Elige una o varias fotos y les pongo tu logo</small>
+    </a>
+    <a class="big" href="#post">
+      <svg class="bigico" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5V20H4z"/><path d="M10 20v-5h4v5"/></g></svg>
+      <b>Post de propiedad</b>
+      <small>Foto con título, precio y tus contactos, lista para publicar</small>
+    </a>
+    <a class="big" href="#video">
+      <svg class="bigico" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10.5l5-3v9l-5-3z"/></g></svg>
+      <b>Video con mi logo</b>
+      <small>Intro, logo, nombre de la propiedad y cierre con tu WhatsApp</small>
+    </a>
+  </section>
+
+  <!-- ============ FOTOS CON LOGO ============ -->
+  <section id="fotos" class="screen" hidden>
+    <h1>Fotos con mi logo</h1>
+    <label class="btn primary">Elegir fotos<input type="file" accept="image/*" multiple id="f-input" class="vh"></label>
+    <div id="f-opts" hidden>
+      <p class="label">¿Dónde va el logo?</p>
+      <div class="seg" id="f-zone">
+        <button data-v="B" class="on">Abajo, pequeño</button>
+        <button data-v="A">Arriba, grande</button>
+      </div>
+    </div>
+    <p class="hint" id="f-msg">Puedes elegir muchas fotos a la vez.</p>
+    <div class="grid" id="f-grid"></div>
+    <button class="btn primary" id="f-share" hidden>Guardar o enviar fotos</button>
+    <p class="hint" id="f-help" hidden>En el menú que aparece, toca <b>«Guardar imágenes»</b> para tenerlas en Fotos, o elige WhatsApp o Instagram.</p>
+  </section>
+
+  <!-- ============ POST DE PROPIEDAD ============ -->
+  <section id="post" class="screen" hidden>
+    <h1>Post de propiedad</h1>
+    <label class="btn primary">Elegir foto<input type="file" accept="image/*" id="p-input" class="vh"></label>
+    <div class="preview"><canvas id="p-canvas" width="1080" height="1350"></canvas></div>
+    <p class="hint" id="p-drag" hidden>Desliza la foto hacia los lados para acomodarla.</p>
+
+    <div class="seg" id="p-fmt">
+      <button data-v="post" class="on">Post</button>
+      <button data-v="story">Historia / Estado</button>
+    </div>
+    <div class="seg" id="p-op">
+      <button data-v="venta" class="on">En venta</button>
+      <button data-v="alquiler">En alquiler</button>
+    </div>
+
+    <label class="field">¿Qué es?
+      <input id="p-title" placeholder="Ej: Departamento vista al mar" autocomplete="off"></label>
+    <label class="field">Edificio o referencia <small>(opcional)</small>
+      <input id="p-ref" placeholder="Ej: Edificio Buzios" autocomplete="off"></label>
+    <label class="field">Sector y ciudad
+      <input id="p-loc" placeholder="Ej: Barbasquillo · Manta" autocomplete="off"></label>
+    <label class="field">Precio
+      <input id="p-price" inputmode="numeric" placeholder="Ej: 1500" autocomplete="off"></label>
+    <label class="field">Nota del precio <small>(opcional)</small>
+      <input id="p-note" placeholder="Ej: Incluye alícuotas" autocomplete="off"></label>
+    <label class="field">Características <small>(opcional, una por línea, van sólo en el texto)</small>
+      <textarea id="p-feat" rows="3" placeholder="3 habitaciones&#10;2 baños&#10;Parqueadero"></textarea></label>
+
+    <button class="btn primary" id="p-share">Guardar o enviar imagen</button>
+    <button class="btn" id="p-copy">Copiar el texto para la publicación</button>
+    <p class="hint">Después de copiar, pégalo en Instagram, Facebook o WhatsApp.</p>
+  </section>
+
+  <!-- ============ VIDEO CON LOGO ============ -->
+  <section id="video" class="screen" hidden>
+    <h1>Video con mi logo</h1>
+    <label class="btn primary" id="v-pick">Elegir video<input type="file" accept="video/*" id="v-input" class="vh"></label>
+    <div class="preview" id="v-prev" hidden><canvas id="v-canvas" width="1080" height="1920"></canvas></div>
+    <div id="v-opts" hidden>
+      <label class="field">¿Qué propiedad es? <small>(opcional)</small>
+        <input id="v-name" placeholder="Ej: Departamento vista al mar · Edificio Buzios" autocomplete="off"></label>
+      <label class="check"><input type="checkbox" id="v-intro" checked> Empezar con la intro del logo (3 s)</label>
+      <label class="check"><input type="checkbox" id="v-outro" checked> Terminar con mi WhatsApp (5 s)</label>
+      <button class="btn primary" id="v-go">Crear video</button>
+    </div>
+    <div id="v-progress" hidden>
+      <div class="bar"><i id="v-bar"></i></div>
+      <p class="hint warn">Creando tu video… Tarda lo mismo que dura el video.<br><b>No cierres esta pantalla ni cambies de app.</b></p>
+    </div>
+    <div id="v-done" hidden>
+      <video id="v-result" controls playsinline></video>
+      <button class="btn primary" id="v-share">Guardar o enviar video</button>
+      <p class="hint">En el menú que aparece, toca <b>«Guardar video»</b> para tenerlo en Fotos.</p>
+    </div>
+    <p class="hint" id="v-msg">Graba el video con el teléfono en vertical para Reels, TikTok y estados.</p>
+  </section>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

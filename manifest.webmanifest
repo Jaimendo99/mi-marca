@@ -1,0 +1,14 @@
+{
+  "name": "Mi Marca · Sirley Zambrano",
+  "short_name": "Mi Marca",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#CADFD8",
+  "theme_color": "#09585F",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
