@@ -41,6 +41,11 @@
       <b>Video con mi logo</b>
       <small>Intro, logo, nombre de la propiedad y cierre con tu WhatsApp</small>
     </a>
+    <a class="big" href="#promo">
+      <svg class="bigico" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><path d="M14 13.5v7l6.5-3.5z"/></g></svg>
+      <b>Video promocional</b>
+      <small>Junta varias fotos y videos en un solo video con música</small>
+    </a>
   </section>
 
   <!-- ============ FOTOS CON LOGO ============ -->
@@ -116,6 +121,44 @@
       <p class="hint">En el menú que aparece, toca <b>«Guardar video»</b> para tenerlo en Fotos.</p>
     </div>
     <p class="hint" id="v-msg">Graba el video con el teléfono en vertical para Reels, TikTok y estados.</p>
+  </section>
+
+  <!-- ============ VIDEO PROMOCIONAL ============ -->
+  <section id="promo" class="screen" hidden>
+    <h1>Video promocional</h1>
+    <label class="btn primary" id="pr-pick"><span id="pr-pick-txt">Elegir fotos y videos</span><input type="file" accept="image/*,video/*" multiple id="pr-input" class="vh"></label>
+    <p class="hint" id="pr-msg"></p>
+    <div id="pr-done" hidden>
+      <video id="pr-result" controls playsinline></video>
+      <button class="btn primary" id="pr-share">Guardar o enviar video</button>
+      <p class="hint">En el menú que aparece, toca <b>«Guardar video»</b> para tenerlo en Fotos.</p>
+    </div>
+    <ol class="items" id="pr-list"></ol>
+    <div id="pr-opts" hidden>
+      <label class="field">¿Qué propiedad es? <small>(opcional)</small>
+        <input id="pr-name" placeholder="Ej: Departamento vista al mar · Edificio Buzios" autocomplete="off"></label>
+      <p class="label">Música <small>(toca para escuchar)</small></p>
+      <div class="seg two" id="pr-music">
+        <button data-v="tranquila" class="on">Tranquila</button>
+        <button data-v="alegre">Alegre</button>
+        <button data-v="elegante">Elegante</button>
+        <button data-v="none">Sin música</button>
+      </div>
+      <p class="hint">Los videos van sin su sonido original.</p>
+      <button class="btn primary" id="pr-go">Crear video</button>
+      <button class="btn" id="pr-clear">Empezar otro video</button>
+    </div>
+    <div class="preview" id="pr-prev" hidden><canvas id="pr-canvas" width="1080" height="1920"></canvas></div>
+    <div id="pr-progress" hidden>
+      <div class="bar"><i id="pr-bar"></i></div>
+      <p class="hint warn">Creando tu video… Tarda lo mismo que dura el video.<br><b>No cierres esta pantalla ni cambies de app.</b></p>
+    </div>
+    <datalist id="pr-labels">
+      <option value="Fachada"><option value="Sala"><option value="Comedor"><option value="Cocina">
+      <option value="Dormitorio principal"><option value="Dormitorio"><option value="Baño"><option value="Balcón">
+      <option value="Terraza"><option value="Vista al mar"><option value="Piscina"><option value="Gimnasio">
+      <option value="Áreas comunes"><option value="Jardín"><option value="Parqueadero"><option value="Lavandería">
+    </datalist>
   </section>
 </main>
 

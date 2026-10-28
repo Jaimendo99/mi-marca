@@ -542,20 +542,24 @@ function drawWatermark(ctx, fmt) {
 
 const LT = { start: 0.8, hold: 4.2, slide: 0.4 };
 function drawLowerThird(ctx, fmt, detail, t) {
-  const end = LT.start + LT.hold + LT.slide;
-  if (t < LT.start || t > end) return;
+  cintillo(ctx, fmt, BRAND.name, detail, t, LT.start, LT.hold);
+}
+
+// Recuadro teal que entra desde la izquierda: título en Poppins y, si hay, una línea de detalle debajo.
+function cintillo(ctx, fmt, title, detail, t, start, hold) {
+  if (t < start || t > start + hold + LT.slide) return;
   const [W, H] = FORMATS[fmt], vert = fmt === '9:16';
-  const padX = 36, padY = 26, nameSize = 44, gap = 14;
+  const padX = 36, padY = 26, gap = 14;
   const x0 = vert ? 60 : Math.round(W * 0.05);
   const maxText = (vert ? W - 120 - x0 : W * 0.6) - padX * 2;
-  setFont(ctx, 700, nameSize, 'Poppins');
-  const nameW = ctx.measureText(BRAND.name).width;
-  const detSize = fit(ctx, detail, 500, 30, 'Montserrat', maxText, 20);
-  const detW = ctx.measureText(detail).width;
-  const bw = Math.max(nameW, detW) + padX * 2, bh = padY * 2 + nameSize + gap + detSize;
+  const nameSize = fit(ctx, title, 700, 44, 'Poppins', maxText, 30);
+  const nameW = ctx.measureText(title).width;
+  const detSize = detail ? fit(ctx, detail, 500, 30, 'Montserrat', maxText, 20) : 0;
+  const detW = detail ? ctx.measureText(detail).width : 0;
+  const bw = Math.max(nameW, detW) + padX * 2, bh = padY * 2 + nameSize + (detail ? gap + detSize : 0);
   const bottom = vert ? H - 380 : H - Math.round(H * 0.05) - 20;   // 9:16: fuera de los 340 px de botones
   const y0 = bottom - bh;
-  const p = ease((t - LT.start) / LT.slide), q = ease((t - LT.start - LT.hold) / LT.slide);
+  const p = ease((t - start) / LT.slide), q = ease((t - start - hold) / LT.slide);
   const dx = -(1 - p) * (bw + x0) - q * (bw + x0);
 
   ctx.save();
@@ -564,9 +568,11 @@ function drawLowerThird(ctx, fmt, detail, t) {
   ctx.fillRect(x0 + dx, y0, bw, bh);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#fff'; setFont(ctx, 700, nameSize, 'Poppins');
-  ctx.fillText(BRAND.name, x0 + dx + padX, y0 + padY + nameSize * 0.82);
-  ctx.fillStyle = SUB; setFont(ctx, 500, detSize, 'Montserrat');
-  ctx.fillText(detail, x0 + dx + padX, y0 + padY + nameSize + gap + detSize * 0.78);
+  ctx.fillText(title, x0 + dx + padX, y0 + padY + nameSize * 0.82);
+  if (detail) {
+    ctx.fillStyle = SUB; setFont(ctx, 500, detSize, 'Montserrat');
+    ctx.fillText(detail, x0 + dx + padX, y0 + padY + nameSize + gap + detSize * 0.78);
+  }
   ctx.restore();
 }
 
@@ -834,6 +840,487 @@ function once(el, ev, ms = 8000) {
   }
 
   $('#v-share').addEventListener('click', () => V.result && shareFiles([V.result.file]));
+}
+
+// =====================================================================
+// 4 · MÚSICA DE FONDO: tres canciones de dominio público (CC0), en music/ (ver music/CREDITOS.md).
+//   Sin atribución y sin pagar derechos. Cada archivo dura 2 min; si el video es más largo, se repite.
+// =====================================================================
+const SONGS = {
+  tranquila: 'music/pond.mp3',            // Rafael Krux · Pond
+  alegre:    'music/advertime.mp3',       // Rafael Krux · Advertime
+  elegante:  'music/3-am-west-end.mp3',   // statusq · 3 am West End
+};
+
+// Sólo se guarda decodificada la última canción usada (cada una ocupa ~40 MB de memoria).
+const musicCache = {};
+function musicBuffer(name) {
+  if (!musicCache[name]) Object.keys(musicCache).forEach(k => delete musicCache[k]);
+  if (!musicCache[name]) musicCache[name] = (async () => {
+    const r = await fetch(SONGS[name]);
+    if (!r.ok) throw new Error('música ' + r.status);
+    const data = await r.arrayBuffer();
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const ctx = new OAC(2, 1, 44100);
+    const buf = await new Promise((res, rej) => ctx.decodeAudioData(data, res, rej));
+    return { buf, loop: buf.duration };
+  })().catch(err => { delete musicCache[name]; throw err; });
+  return musicCache[name];
+}
+
+// Muestra de 8 s al tocar un estilo. Suena aunque el iPhone esté en silencio.
+let sample = null;
+function stopSample() {
+  if (sample) { sample.close().catch(() => {}); sample = null; }
+}
+function playSample(name) {
+  stopSample();
+  if (!SONGS[name]) return;
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    ac.resume(); sample = ac;
+    musicBuffer(name).then(({ buf, loop }) => {
+      if (sample !== ac) return;
+      const s = ac.createBufferSource(), g = ac.createGain(), t = ac.currentTime;
+      s.buffer = buf; s.loop = true; s.loopEnd = loop;
+      g.gain.setValueAtTime(1, t + 6.5); g.gain.linearRampToValueAtTime(0, t + 8);
+      s.connect(g); g.connect(ac.destination);
+      s.start(t); s.stop(t + 8.1);
+      s.onended = () => { if (sample === ac) stopSample(); };
+    }).catch(() => toast('No pude cargar la música. Revisa tu internet y toca el estilo otra vez.'));
+  } catch (err) { console.warn(err); }
+}
+addEventListener('hashchange', stopSample);
+
+// =====================================================================
+// 5 · VIDEO PROMOCIONAL: varias fotos y videos en el orden que ella elija, con música.
+//   intro (si dura 15 s o más) → cada foto o video con su nombre en el cintillo → cierre con el WhatsApp
+//   Siempre vertical 9:16 (Reels, TikTok, estados). Los videos van sin su sonido original.
+// =====================================================================
+// photo: segundos por foto · clipMax: segundos máximos de cada video · fade: fundido entre partes (ms)
+const PROMO = { fmt: '9:16', photo: 3.5, clipMax: 8, fade: 400, maxItems: 20 };
+
+// Movimiento lento: las fotos anchas se recorren de lado a lado y además se acercan un poco.
+// zoom 0 en videos (sólo se recorren de lado si son horizontales).
+function kenBurns(ctx, src, sw, sh, W, H, p, dir, zoom, amp) {
+  const k = Math.max(W / sw, H / sh) * (1 + zoom * (0.02 + 0.08 * p)), dw = sw * k, dh = sh * k;
+  const pan = dw - W > W * 0.2 ? dir * amp * (1 - 2 * p) : 0;
+  ctx.drawImage(src, (W - dw) / 2 * (1 - pan), (H - dh) / 2, dw, dh);
+}
+
+// La foto se decodifica antes de que le toque, ya reducida al tamaño del video (cabe el acercamiento).
+async function loadPhoto(url, W, H) {
+  const img = await loadImg(url);
+  if (img.decode) await img.decode().catch(() => {});
+  const k = Math.min(1, Math.max(W / img.naturalWidth, H / img.naturalHeight) * 1.12);
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+
+async function loadClip(v, url) {
+  await v.unlock;
+  if (v.getAttribute('src') !== url) v.src = url;
+  if (v.readyState < 2) {
+    // si iOS no carga el video quieto, se le da play un instante
+    await once(v, 'loadeddata', 6000).catch(async err => {
+      if (v.error) throw err;
+      await v.play(); v.pause();
+    });
+  }
+  if (v.currentTime > 0) { v.currentTime = 0; await once(v, 'seeked', 5000).catch(() => {}); }
+  return v;
+}
+
+{
+  const canvas = $('#pr-canvas'), ctx = canvas.getContext('2d');
+  const list = $('#pr-list'), msg = $('#pr-msg');
+  const P = { items: [], seq: 0, busy: false, adding: false, result: null };
+  const show = (id, on) => $(id).hidden = !on;
+  const isVideo = f => /^video\//.test(f.type) || /\.(mov|mp4|m4v|webm)$/i.test(f.name);
+  const segLen = it => it.kind === 'photo' ? PROMO.photo : Math.min(it.dur, PROMO.clipMax);
+  const plan = () => {
+    const media = P.items.reduce((s, it) => s + segLen(it), 0), intro = media >= 15;
+    return { media, intro, total: (intro ? DUR.intro : 0) + media + DUR.outro };
+  };
+  const secs = s => { const m = Math.floor(s / 60), r = Math.round(s % 60); return m ? `${m} min ${r} s` : `${r} s`; };
+
+  // nombre de la propiedad y música elegida: se guardan por si iOS recarga la página
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('promo') || '{}'); } catch (e) { /* sin datos guardados */ }
+  if (saved.name) $('#pr-name').value = saved.name;
+  if (saved.music) $('#pr-music').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === saved.music));
+  const music = segmented($('#pr-music'), v => { saveOpts(); invalidate(); playSample(v); });
+  function saveOpts() {
+    try { localStorage.setItem('promo', JSON.stringify({ name: $('#pr-name').value, music: music() })); } catch (e) { /* modo privado */ }
+  }
+  $('#pr-name').addEventListener('input', () => { saveOpts(); invalidate(); });
+
+  // el video ya hecho deja de valer si cambia algo
+  function invalidate() {
+    if ($('#pr-done').hidden) return;
+    show('#pr-done', false);
+    const res = $('#pr-result'); res.removeAttribute('src'); res.load();
+    status();
+  }
+
+  function status(extra = '') {
+    const n = P.items.length;
+    msg.textContent = !n ? 'Tócalas en el orden en que quieres que salgan. Después puedes cambiar el orden con las flechas.'
+      : `${n === 1 ? '1 foto o video' : `${n} fotos y videos`}. Tu video va a durar unos ${secs(plan().total)}.` + extra;
+  }
+
+  function renderList() {
+    list.innerHTML = '';
+    P.items.forEach((it, i) => {
+      const li = document.createElement('li');
+      li.className = 'item'; li.dataset.id = it.id;
+      li.innerHTML = `<div class="thumb"><img alt=""><span class="num">${i + 1}</span>` +
+        (it.kind === 'video' ? `<span class="tag">▶ ${Math.round(segLen(it))} s</span>` : '') + `</div>
+        <div class="mid"><input placeholder="¿Qué se ve? Ej: Cocina" list="pr-labels" autocomplete="off" maxlength="40">
+          <button class="del">Quitar</button></div>
+        <div class="moves"><button class="up" aria-label="Subir">▲</button><button class="down" aria-label="Bajar">▼</button></div>`;
+      li.querySelector('img').src = it.thumb;
+      li.querySelector('input').value = it.label;
+      li.querySelector('.up').disabled = i === 0;
+      li.querySelector('.down').disabled = i === P.items.length - 1;
+      list.appendChild(li);
+    });
+    const has = P.items.length > 0;
+    show('#pr-opts', has);
+    $('#pr-pick').classList.toggle('primary', !has);
+    $('#pr-pick-txt').textContent = has ? 'Agregar más fotos o videos' : 'Elegir fotos y videos';
+  }
+
+  // Miniatura y duración; el archivo grande se abre recién al crear el video.
+  async function openItem(file) {
+    const url = URL.createObjectURL(file);
+    const it = { id: ++P.seq, url, kind: isVideo(file) ? 'video' : 'photo', label: '', dur: 0, thumb: '' };
+    const t = document.createElement('canvas'), tctx = t.getContext('2d');
+    const thumb = (src, w, h) => { t.width = t.height = 200; cover(tctx, src, w, h, 200, 200); };
+    try {
+      if (it.kind === 'photo') {
+        const img = await loadImg(url);
+        thumb(img, img.naturalWidth, img.naturalHeight);
+      } else {
+        const vid = document.createElement('video');
+        vid.muted = true; vid.playsInline = true; vid.preload = 'auto'; vid.src = url;
+        try {
+          await once(vid, 'loadedmetadata', 15000);
+          it.dur = vid.duration;
+          if (!isFinite(it.dur) || it.dur < 0.5) throw new Error('duración');
+          try { await Promise.race([vid.play(), new Promise((_, rej) => setTimeout(rej, 2500))]); } catch (err) { /* sin autoplay: el seek igual da un cuadro */ }
+          vid.pause();
+          vid.currentTime = Math.min(1, it.dur / 2);
+          await once(vid, 'seeked', 8000).catch(() => {});
+          thumb(vid, vid.videoWidth, vid.videoHeight);
+        } finally { vid.removeAttribute('src'); vid.load(); }
+      }
+      it.thumb = t.toDataURL('image/jpeg', 0.75);
+      return it;
+    } catch (err) {
+      URL.revokeObjectURL(url);
+      throw err;
+    }
+  }
+
+  $('#pr-input').addEventListener('change', async e => {
+    const files = [...e.target.files]; e.target.value = '';
+    if (!files.length || P.busy || P.adding) return;
+    P.adding = true; invalidate();
+    await ready;
+    let skipped = 0, over = 0;
+    for (let i = 0; i < files.length; i++) {
+      if (P.items.length >= PROMO.maxItems) { over = files.length - i; break; }
+      msg.textContent = `Abriendo… ${i + 1} de ${files.length}`;
+      try { P.items.push(await openItem(files[i])); renderList(); }
+      catch (err) { console.error(err); skipped++; }
+    }
+    P.adding = false;
+    renderList();
+    status((skipped ? ` (${skipped === 1 ? '1 no se pudo abrir' : `${skipped} no se pudieron abrir`})` : '') +
+      (over ? ` Puedes poner hasta ${PROMO.maxItems}; ${over === 1 ? 'una quedó fuera' : `${over} quedaron fuera`}.` : ''));
+    // la música se prepara mientras ella escribe los nombres
+    if (SONGS[music()]) musicBuffer(music()).catch(() => {});
+  });
+
+  list.addEventListener('input', e => {
+    const it = P.items.find(x => x.id == e.target.closest('.item').dataset.id);
+    if (it) { it.label = e.target.value; invalidate(); }
+  });
+
+  list.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || P.busy) return;
+    const li = b.closest('.item'), i = P.items.findIndex(x => x.id == li.dataset.id);
+    if (i < 0) return;
+    if (b.classList.contains('del')) {
+      URL.revokeObjectURL(P.items.splice(i, 1)[0].url);
+      renderList(); invalidate(); status();
+      return;
+    }
+    const j = b.classList.contains('up') ? i - 1 : i + 1;
+    if (j < 0 || j >= P.items.length) return;
+    [P.items[i], P.items[j]] = [P.items[j], P.items[i]];
+    // la tarjeta movida se queda bajo el dedo (si la página puede desplazarse) y se ilumina
+    const before = li.getBoundingClientRect().top;
+    renderList(); invalidate();
+    const moved = list.children[j];
+    window.scrollBy(0, moved.getBoundingClientRect().top - before);
+    moved.classList.add('flash');
+  });
+
+  $('#pr-clear').addEventListener('click', () => {
+    if (P.busy || !confirm('¿Quitar todas las fotos y videos para empezar otro video?')) return;
+    P.items.forEach(it => URL.revokeObjectURL(it.url));
+    P.items = []; $('#pr-name').value = ''; saveOpts();
+    invalidate(); renderList(); status();
+    window.scrollTo(0, 0);
+  });
+
+  $('#pr-go').addEventListener('click', () => {
+    if (P.busy || P.adding || !P.items.length) return;
+    if (!window.MediaRecorder || !canvas.captureStream) {
+      toast('Este teléfono no puede crear videos aquí. Actualiza iOS e inténtalo de nuevo.', 5000);
+      return;
+    }
+    stopSample();
+    // Todo lo que necesita un toque se arranca aquí mismo: el audio y los dos reproductores de video.
+    const style = music(), items = P.items.map(it => ({ ...it }));
+    const clips = items.filter(it => it.kind === 'video');
+    const pool = [0, 1].map(k => {
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'auto';
+      if (clips[k]) { v.src = clips[k].url; v.unlock = v.play().then(() => v.pause(), () => {}); }
+      return v;
+    });
+    let ac = null, dest = null;
+    if (SONGS[style]) {
+      try {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        dest = ac.createMediaStreamDestination();
+        ac.resume();
+      } catch (err) { console.warn('sin audio', err); ac = null; }
+    }
+    invalidate();
+    P.busy = true;
+    show('#pr-opts', false); list.hidden = true; $('#pr-pick').hidden = true;
+    show('#pr-prev', true); show('#pr-progress', true); $('#pr-bar').style.width = '0';
+    msg.textContent = '';
+    window.scrollTo(0, 0);
+    let silent = false;
+    (async () => {
+      let song = null;
+      if (ac) {
+        song = await musicBuffer(style).catch(() => null);
+        const t = performance.now();
+        while (ac.state !== 'running' && performance.now() - t < 1500) { ac.resume().catch(() => {}); await new Promise(r => setTimeout(r, 100)); }
+        if (!song || ac.state !== 'running') { ac.close().catch(() => {}); ac = null; dest = null; silent = true; }
+      }
+      return render(items, pool, ac, dest, song);
+    })()
+      .then(({ blob, poster, expected, skipped }) => {
+        if (P.result) URL.revokeObjectURL(P.result.url);
+        const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+        P.result = { file: new File([blob], `sirley-promo-${stamp()}.${ext}`, { type: blob.type.split(';')[0] }), url: URL.createObjectURL(blob) };
+        const res = $('#pr-result');
+        res.poster = poster || ''; res.src = P.result.url;
+        show('#pr-done', true);
+        msg.textContent = '¡Listo! Revisa tu video.' +
+          (silent ? ' Salió sin música; si la quieres, revisa tu internet y toca «Crear video» otra vez.' : '') +
+          (skipped ? ` ${skipped === 1 ? '1 foto o video no se pudo usar y lo salté' : `${skipped} fotos o videos no se pudieron usar y los salté`}.` : '');
+        once(res, 'loadedmetadata').then(() => {
+          if (isFinite(res.duration) && res.duration < expected - 1)
+            msg.textContent = 'El video salió más corto de lo normal. Revísalo y, si le falta algo, toca «Crear video» otra vez.';
+        }).catch(() => {});
+      })
+      .catch(err => {
+        console.error(err);
+        msg.textContent = err && err.message === 'hidden'
+          ? 'Se detuvo porque saliste de la app. Toca «Crear video» otra vez y deja la pantalla encendida.'
+          : 'Algo falló al crear el video. Toca «Crear video» otra vez.';
+      })
+      .finally(() => {
+        P.busy = false;
+        show('#pr-progress', false); show('#pr-prev', false); show('#pr-opts', true);
+        list.hidden = false; $('#pr-pick').hidden = false;
+        pool.forEach(v => { v.pause(); v.removeAttribute('src'); v.load(); });
+        if (ac) ac.close().catch(() => {});
+      });
+  });
+
+  async function render(items, pool, ac, dest, song) {
+    const fmt = PROMO.fmt, [W, H] = FORMATS[fmt];
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    const name = $('#pr-name').value.trim();
+    // cintillo: el nombre de lo que se ve; la primera parte lleva además el nombre de la propiedad
+    const segs = items.map((it, i) => {
+      const label = it.label.trim();
+      return { it, len: segLen(it), dir: i % 2 ? -1 : 1, title: (label || (i ? '' : name)).toUpperCase(), sub: label && !i ? name : '' };
+    });
+    const media = segs.reduce((s, x) => s + x.len, 0), intro = media >= 15;
+    const total = (intro ? DUR.intro : 0) + media + DUR.outro;
+    const bar = $('#pr-bar'), mark = { at: -1e9, bright: false };
+
+    const stream = canvas.captureStream(30);
+    if (dest) dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    const mimeType = pickMime();
+    const rec = new MediaRecorder(stream, mimeType ? { mimeType, videoBitsPerSecond: 8e6 } : { videoBitsPerSecond: 8e6 });
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(res => rec.onstop = res);
+    let recStarted = 0;
+    rec.onstart = () => recStarted = performance.now();
+
+    // fundido entre partes: se guarda el último cuadro y se desvanece encima de la parte nueva
+    const snap = document.createElement('canvas'); snap.width = W; snap.height = H;
+    const snapCtx = snap.getContext('2d');
+    let fadeFrom = -1;
+    const takeSnap = now => { snapCtx.drawImage(canvas, 0, 0); fadeFrom = now; };
+    const drawFade = now => {
+      if (fadeFrom < 0) return;
+      const a = 1 - (now - fadeFrom) / PROMO.fade;
+      if (a <= 0) { fadeFrom = -1; return; }
+      ctx.save(); ctx.globalAlpha = a; ctx.drawImage(snap, 0, 0); ctx.restore();
+    };
+
+    // cada parte se prepara mientras se graba la anterior; los videos se turnan entre los dos reproductores
+    let nextPlayer = 0;
+    const prep = i => {
+      const s = segs[i]; if (!s || s.job) return;
+      s.job = s.it.kind === 'photo' ? loadPhoto(s.it.url, W, H) : loadClip(pool[nextPlayer++ % 2], s.it.url);
+      s.job.then(src => s.src = src, err => { console.warn('no se pudo usar', err); s.bad = true; });
+    };
+    const drawSeg = (s, t) => {
+      const p = clamp(t / s.len), src = s.src;
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+      if (s.it.kind === 'photo') kenBurns(ctx, src, src.width, src.height, W, H, p, s.dir, 1, 0.6);
+      else if (src.videoWidth) kenBurns(ctx, src, src.videoWidth, src.videoHeight, W, H, p, s.dir, 0, 0.4);
+      centerMark(ctx, W, H, H / 2, mark);
+      drawWatermark(ctx, fmt);
+      if (s.title) cintillo(ctx, fmt, s.title, s.sub, t, 0.3, Math.max(0.8, s.len - 1.2));
+    };
+
+    // La música ya corre en silencio antes de grabar: con la pista de audio muda el grabador tarda en arrancar.
+    let mus = null;
+    if (song) {
+      const s = ac.createBufferSource();
+      mus = ac.createGain(); mus.gain.value = 0;
+      s.buffer = song.buf; s.loop = true; s.loopEnd = song.loop;
+      s.connect(mus); mus.connect(dest); s.start();
+    }
+    const startMusic = () => {
+      if (!mus) return;
+      const t = ac.currentTime;
+      mus.gain.setValueAtTime(0, t); mus.gain.linearRampToValueAtTime(0.9, t + 0.5);
+    };
+    // la música baja junto con el cierre
+    const endMusic = () => {
+      if (!mus) return;
+      const t = ac.currentTime;
+      mus.gain.setValueAtTime(0.9, t + DUR.outro - 2.5); mus.gain.linearRampToValueAtTime(0, t + DUR.outro);
+    };
+
+    prep(0);
+    if (!intro) await segs[0].job.catch(() => {});
+
+    let wake = null;
+    try { wake = await navigator.wakeLock.request('screen'); } catch (e) { /* no disponible */ }
+
+    let failed = null;
+    const onHide = () => { if (document.hidden) failed = new Error('hidden'); };
+    document.addEventListener('visibilitychange', onHide);
+
+    // Calentamiento como en el video con logo: se repite el primer cuadro hasta que el grabador arranca.
+    const first = () => {
+      if (intro) drawMotion(ctx, 'intro', fmt, 0);
+      else if (segs[0].src) drawSeg(segs[0], 0);
+      else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
+    };
+    const warm0 = performance.now();
+    let phase = 'warm', i = -1, cur = null, start = 0, t0 = 0, done = 0, waitSince = 0;
+    let poster = '', skipped = 0, lastT = -1, lastMove = 0, stuckSince = 0;
+    first();
+    rec.start(1000);
+
+    try {
+      await new Promise((resolve, reject) => {
+        // pasa a la siguiente parte (o al cierre si ya no quedan)
+        const next = now => {
+          if (cur && cur.src) {
+            if (cur.it.kind === 'video') cur.src.pause();
+            else cur.src.width = cur.src.height = 0;
+          }
+          i++;
+          if (i >= segs.length) { takeSnap(now); phase = 'outro'; start = now; endMusic(); return; }
+          cur = segs[i]; prep(i + 1); phase = 'wait'; waitSince = now;
+        };
+        const step = now => {
+          if (failed) return reject(failed);
+          if (phase === 'warm') {
+            first();
+            if ((recStarted && now - recStarted > 300) || now - warm0 > 2500) {
+              t0 = start = now; startMusic();
+              if (intro) phase = 'intro'; else next(now);
+            }
+          } else if (phase === 'intro') {
+            const t = (now - start) / 1000;
+            drawMotion(ctx, 'intro', fmt, Math.min(t, DUR.intro));
+            bar.style.width = (100 * t / total) + '%';
+            if (t >= DUR.intro) { done = DUR.intro; next(now); }
+          }
+          if (phase === 'wait') {
+            // el cuadro anterior se queda quieto hasta que la parte nueva esté lista
+            if (cur.bad) { skipped++; next(now); }
+            else if (cur.src) {
+              takeSnap(now); phase = 'seg'; start = now; lastT = -1; lastMove = now; stuckSince = 0;
+              if (cur.it.kind === 'video') cur.src.play().catch(() => {});
+            } else if (now - waitSince > 15000) return reject(new Error('stall'));
+          }
+          if (phase === 'seg') {
+            const v = cur.it.kind === 'video' ? cur.src : null;
+            const t = v ? v.currentTime : (now - start) / 1000;
+            drawSeg(cur, t); drawFade(now);
+            if (!poster && t > Math.min(1.5, cur.len / 2)) poster = canvas.toDataURL('image/jpeg', 0.7);
+            bar.style.width = Math.min(100, 100 * (done + t) / total) + '%';
+            if (t >= cur.len || (v && (v.ended || (v.duration - v.currentTime < 0.05 && v.paused)))) {
+              done += cur.len; next(now);
+            } else if (v) {
+              // iOS puede pausar o congelar el video (llamada, audio): se reanuda, y si no avanza en 8 s se aborta
+              if (v.currentTime !== lastT) { lastT = v.currentTime; lastMove = now; }
+              if (now - lastMove > 8000) return reject(new Error('stall'));
+              if (v.paused || now - lastMove > 1500) {
+                if (!stuckSince) stuckSince = now;
+                else if (now - stuckSince > 800) { v.play().catch(() => {}); stuckSince = now; }
+              } else stuckSince = 0;
+            }
+          } else if (phase === 'outro') {
+            const t = (now - start) / 1000;
+            drawMotion(ctx, 'outro', fmt, Math.min(t, DUR.outro));
+            drawFade(now);
+            bar.style.width = Math.min(100, 100 * (done + t) / total) + '%';
+            if (t >= DUR.outro + 0.2) return resolve();
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+    } finally {
+      document.removeEventListener('visibilitychange', onHide);
+      if (rec.state !== 'inactive') rec.stop();
+      await stopped;
+      stream.getTracks().forEach(t => t.stop());
+      if (wake) wake.release().catch(() => {});
+      segs.forEach(s => { if (s.src && s.it.kind === 'photo') s.src.width = s.src.height = 0; });
+    }
+    if (skipped === segs.length) throw new Error('nada');
+    const expected = (performance.now() - t0) / 1000;
+    return { blob: new Blob(chunks, { type: rec.mimeType || mimeType || 'video/mp4' }), poster, expected, skipped };
+  }
+
+  $('#pr-share').addEventListener('click', () => P.result && shareFiles([P.result.file]));
+  status();
 }
 
 // ---------- navegación ----------
