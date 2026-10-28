@@ -252,10 +252,14 @@ function brandPhoto(img, zone) {
 // =====================================================================
 // 2 · POST DE PROPIEDAD  (1080×1350 post · 1080×1920 historia)
 // =====================================================================
+// Intensidad de los degradados teal del post y la historia: [opacidad en el borde, opacidad a mitad del degradado].
+// Más bajo = se ve más la foto. Valores originales del manual: arriba [0.95, 0.55] y abajo [0.97, 0.82].
+const POST_FADE = { top: [0.6, 0.3], bottom: [0.72, 0.5] };
+
 const POST = {
   post:  { fmt: '4:5',  logoW: 312, logoY: 74,  topFade: 0.30, botFade: 0.47, base: 0,   badge: [430, 340], textBottom: 225 },
-  // historias: nada importante en los 250 px de arriba ni en los 340 de abajo
-  story: { fmt: '9:16', logoW: 340, logoY: 250, topFade: 0.30, botFade: 0.52, base: 300, badge: [470, 640], textBottom: 260 },
+  // historias: arriba el logo empieza bajo la barra de progreso y el nombre (~170 px); abajo ~220 px libres para la barra de respuesta
+  story: { fmt: '9:16', logoW: 340, logoY: 170, topFade: 0.22, botFade: 0.44, base: 170, badge: [470, 500], textBottom: 260 },
 };
 
 function formatPrice(raw) {
@@ -280,8 +284,8 @@ function drawPost(ctx, kind, photo, d, pan) {
     g.addColorStop(0, TEAL); g.addColorStop(1, DEEP);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
-  fade(ctx, W, 0, H * L.topFade, 0.95, 0.55);
-  fade(ctx, W, H, H * (1 - L.botFade));
+  fade(ctx, W, 0, H * L.topFade, ...POST_FADE.top);
+  fade(ctx, W, H, H * (1 - L.botFade), ...POST_FADE.bottom);
   logoAt(ctx, (W - L.logoW) / 2, L.logoY, L.logoW);
 
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
