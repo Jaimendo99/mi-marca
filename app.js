@@ -934,6 +934,37 @@ async function loadClip(v, url) {
   return v;
 }
 
+// Nombre de la propiedad: texto blanco con sombra, fijo arriba junto al isotipo durante todas las partes.
+// Una línea si cabe sin achicar mucho; si no, dos líneas más chicas.
+function promoTitle(ctx, W, name) {
+  const markW = 96 * MARK_W / LOGO_H, x0 = 60 + markW + 28, maxText = W - 60 - x0, lead = 1.15;
+  const text = name.toUpperCase();
+  let size = fit(ctx, text, 700, 50, 'Poppins', maxText, 36), lines = [text];
+  if (ctx.measureText(text).width > maxText) {
+    for (size = 44; ; size -= 2) {
+      setFont(ctx, 700, size, 'Poppins');
+      lines = wrap(ctx, text, maxText);
+      if (lines.length <= 2 || size <= 32) break;
+    }
+    if (lines.length > 2) lines = [lines[0], lines.slice(1).join(' ')];
+    // sin «·», «,» o guiones sueltos al final o al inicio de una línea
+    lines = lines.map(l => l.replace(/\s*[·,|\-–—]$/, '').replace(/^[·|\-–—]\s*/, ''));
+  }
+  // el bloque (texto + rayita menta) va centrado con el isotipo (y 270, alto 96)
+  const textH = size * 0.72 + size * lead * (lines.length - 1), blockH = textH + 22;
+  const top = 270 + 48 - blockH / 2;
+  return () => {
+    ctx.save();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    setFont(ctx, 700, size, 'Poppins');
+    ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 2;
+    ctx.fillStyle = '#fff';
+    lines.forEach((l, k) => ctx.fillText(l, x0, top + size * 0.72 + size * lead * k, maxText));
+    ctx.fillStyle = MINT; ctx.fillRect(x0, top + textH + 16, 84, 6);
+    ctx.restore();
+  };
+}
+
 {
   const canvas = $('#pr-canvas'), ctx = canvas.getContext('2d');
   const list = $('#pr-list'), msg = $('#pr-msg');
@@ -1154,11 +1185,9 @@ async function loadClip(v, url) {
     const fmt = PROMO.fmt, [W, H] = FORMATS[fmt];
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
     const name = $('#pr-name').value.trim();
-    // cintillo: el nombre de lo que se ve; la primera parte lleva además el nombre de la propiedad
-    const segs = items.map((it, i) => {
-      const label = it.label.trim();
-      return { it, len: segLen(it), dir: i % 2 ? -1 : 1, title: (label || (i ? '' : name)).toUpperCase(), sub: label && !i ? name : '' };
-    });
+    // el nombre de la propiedad se queda fijo arriba; el de cada parte entra en el cintillo de abajo
+    const title = name ? promoTitle(ctx, W, name) : null;
+    const segs = items.map((it, i) => ({ it, len: segLen(it), dir: i % 2 ? -1 : 1, title: it.label.trim().toUpperCase() }));
     const media = segs.reduce((s, x) => s + x.len, 0), intro = media >= 15;
     const total = (intro ? DUR.intro : 0) + media + DUR.outro;
     const bar = $('#pr-bar'), mark = { at: -1e9, bright: false };
@@ -1199,7 +1228,8 @@ async function loadClip(v, url) {
       else if (src.videoWidth) kenBurns(ctx, src, src.videoWidth, src.videoHeight, W, H, p, s.dir, 0, 0.4);
       centerMark(ctx, W, H, H / 2, mark);
       drawWatermark(ctx, fmt);
-      if (s.title) cintillo(ctx, fmt, s.title, s.sub, t, 0.3, Math.max(0.8, s.len - 1.2));
+      if (title) title();
+      if (s.title) cintillo(ctx, fmt, s.title, '', t, 0.3, Math.max(0.8, s.len - 1.2));
     };
 
     // La música ya corre en silencio antes de grabar: con la pista de audio muda el grabador tarda en arrancar.
